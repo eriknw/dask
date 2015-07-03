@@ -332,13 +332,12 @@ class Worker(object):
             try:
                 with self.scheduler_lock:
                     code = self.to_scheduler.poll(100)
+                    if code != zmq.POLLIN:
+                        continue
+                    header, payload = self.to_scheduler.recv_multipart()
             except zmq.ZMQError:
                 break
-            if code != zmq.POLLIN:
-                continue
             with logerrors():
-                with self.scheduler_lock:
-                    header, payload = self.to_scheduler.recv_multipart()
                 header = pickle.loads(header)
                 log(self.address, 'Receive job from scheduler', header)
                 try:
@@ -358,13 +357,12 @@ class Worker(object):
             try:
                 with self.workers_lock:
                     code = self.to_workers.poll(100)
+                    if code != zmq.POLLIN:
+                        continue
+                    address, header, payload = self.to_workers.recv_multipart()
             except zmq.ZMQError:
                 break
-            if code != zmq.POLLIN:
-                continue
             with logerrors():
-                with self.workers_lock:
-                    address, header, payload = self.to_workers.recv_multipart()
                 header = pickle.loads(header)
                 if 'address' not in header:
                     header['address'] = address

@@ -191,12 +191,11 @@ class Scheduler(object):
             try:
                 with self.client_lock:
                     code = self.to_clients.poll(100)  # is this threadsafe?
+                    if code != zmq.POLLIN:
+                        continue
+                    address, header, payload = self.to_clients.recv_multipart()
             except zmq.ZMQError:
                 break
-            if code != zmq.POLLIN:
-                continue
-            with self.client_lock:
-                address, header, payload = self.to_clients.recv_multipart()
             header = pickle.loads(header)
             if 'address' not in header:
                 header['address'] = address
