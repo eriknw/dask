@@ -190,7 +190,7 @@ class Scheduler(object):
         while self.status != 'closed':
             try:
                 with self.client_lock:
-                    code = self.to_clients.poll(100):  # is this threadsafe?
+                    code = self.to_clients.poll(100)  # is this threadsafe?
             except zmq.ZMQError:
                 break
             if code != zmq.POLLIN:

@@ -331,7 +331,7 @@ class Worker(object):
             # Wait on request
             try:
                 with self.scheduler_lock:
-                    code = self.to_scheduler.poll(100):
+                    code = self.to_scheduler.poll(100)
             except zmq.ZMQError:
                 break
             if code != zmq.POLLIN:
@@ -357,7 +357,7 @@ class Worker(object):
             # Wait on request
             try:
                 with self.workers_lock:
-                    code = self.to_workers.poll(100):
+                    code = self.to_workers.poll(100)
             except zmq.ZMQError:
                 break
             if code != zmq.POLLIN:
