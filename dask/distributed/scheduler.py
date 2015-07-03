@@ -122,7 +122,8 @@ class Scheduler(object):
         self.worker_poller.register(self.send_to_workers_recv, zmq.POLLIN)
 
         self.pool = ThreadPool(100)
-        self.lock = Lock()
+        self.client_lock = Lock()
+        self.worker_lock = Lock()
         self.status = 'run'
         self.queues = dict()
 
@@ -187,12 +188,12 @@ class Scheduler(object):
     def _listen_to_clients(self):
         """ Event loop: Listen to client router """
         while self.status != 'closed':
-            try:
-                if not self.to_clients.poll(100):  # is this threadsafe?
-                    continue
-            except zmq.ZMQError:
-                break
-            with self.lock:
+            with self.client_lock:
+                try:
+                    if not self.to_clients.poll(100):  # is this threadsafe?
+                        continue
+                except zmq.ZMQError:
+                    break
                 address, header, payload = self.to_clients.recv_multipart()
             header = pickle.loads(header)
             if 'address' not in header:
@@ -286,7 +287,8 @@ class Scheduler(object):
         self.send_to_workers_queue.put([address,
                                             pickle.dumps(header),
                                             dumps(payload)])
-        self.send_to_workers_send.send(b'')
+        with self.worker_lock:
+            self.send_to_workers_send.send(b'')
 
     def send_to_client(self, address, header, result):
         """ Send packet to client """
@@ -297,7 +299,7 @@ class Scheduler(object):
         if isinstance(address, unicode):
             address = address.encode()
         header['timestamp'] = datetime.utcnow()
-        with self.lock:
+        with self.client_lock:
             self.to_clients.send_multipart([address,
                                             pickle.dumps(header),
                                             dumps(result)])

@@ -328,11 +328,12 @@ class Worker(object):
         """
         while self.status != 'closed':
             # Wait on request
-            try:
-                if not self.to_scheduler.poll(100):
-                    continue
-            except zmq.ZMQError:
-                break
+            with self.lock:
+                try:
+                    if not self.to_scheduler.poll(100):
+                        continue
+                except zmq.ZMQError:
+                    break
             with logerrors():
                 with self.lock:
                     header, payload = self.to_scheduler.recv_multipart()
