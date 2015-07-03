@@ -107,7 +107,8 @@ class Worker(object):
 
         self.dealers = dict()
 
-        self.lock = Lock()
+        self.scheduler_lock = Lock()
+        self.worker_lock = Lock()
 
         self.queues = dict()
 
@@ -256,7 +257,7 @@ class Worker(object):
         header['address'] = self.address
         header['timestamp'] = datetime.utcnow()
         dumps = header.get('dumps', pickle_dumps)
-        with self.lock:
+        with self.scheduler_lock:
             self.to_scheduler.send_multipart([pickle_dumps(header),
                                               dumps(payload)])
 
@@ -282,7 +283,7 @@ class Worker(object):
         header['timestamp'] = datetime.utcnow()
         log(self.address, 'Send to worker', address, header)
         dumps = header.get('dumps', pickle_dumps)
-        with self.lock:
+        with self.workers_lock:
             self.dealers[address].send_multipart([pickle_dumps(header),
                                                   dumps(payload)])
 
@@ -328,14 +329,14 @@ class Worker(object):
         """
         while self.status != 'closed':
             # Wait on request
-            with self.lock:
+            with self.scheduler_lock:
                 try:
                     if not self.to_scheduler.poll(100):
                         continue
                 except zmq.ZMQError:
                     break
             with logerrors():
-                with self.lock:
+                with self.scheduler_lock:
                     header, payload = self.to_scheduler.recv_multipart()
                 header = pickle.loads(header)
                 log(self.address, 'Receive job from scheduler', header)
@@ -507,7 +508,7 @@ class Worker(object):
         self.close()
 
     def close(self):
-        with self.lock:
+        with self.scheduler_lock:
             if self.status != 'closed':
                 self.status = 'closed'
                 do_close = True
