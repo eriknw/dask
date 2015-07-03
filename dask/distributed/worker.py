@@ -329,12 +329,13 @@ class Worker(object):
         """
         while self.status != 'closed':
             # Wait on request
-            with self.scheduler_lock:
-                try:
-                    if not self.to_scheduler.poll(100):
-                        continue
-                except zmq.ZMQError:
-                    break
+            try:
+                with self.scheduler_lock:
+                    code = self.to_scheduler.poll(100):
+            except zmq.ZMQError:
+                break
+            if code != zmq.POLLIN:
+                continue
             with logerrors():
                 with self.scheduler_lock:
                     header, payload = self.to_scheduler.recv_multipart()
@@ -355,13 +356,15 @@ class Worker(object):
         while self.status != 'closed':
             # Wait on request
             try:
-                if not self.to_workers.poll(100):
-                    continue
+                with self.workers_lock:
+                    code = self.to_workers.poll(100):
             except zmq.ZMQError:
                 break
-
+            if code != zmq.POLLIN:
+                continue
             with logerrors():
-                address, header, payload = self.to_workers.recv_multipart()
+                with self.workers_lock:
+                    address, header, payload = self.to_workers.recv_multipart()
                 header = pickle.loads(header)
                 if 'address' not in header:
                     header['address'] = address
