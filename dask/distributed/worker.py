@@ -107,7 +107,9 @@ class Worker(object):
 
         self.dealers = dict()
 
-        self.lock = Lock()
+        self.to_scheduler_lock = Lock()
+        self.to_workers_lock = Lock()
+        self.dealers_lock = Lock()
 
         self.queues = dict()
 
@@ -256,7 +258,7 @@ class Worker(object):
         header['address'] = self.address
         header['timestamp'] = datetime.utcnow()
         dumps = header.get('dumps', pickle_dumps)
-        with self.lock:
+        with self.to_scheduler_lock:
             self.to_scheduler.send_multipart([pickle_dumps(header),
                                               dumps(payload)])
 
@@ -271,8 +273,9 @@ class Worker(object):
         """
         if address not in self.dealers:
             if len(self.dealers) > MAX_DEALERS:
-                for sock in self.dealers.values():
-                    sock.close()
+                with self.dealers_lock:
+                    for sock in self.dealers.values():
+                        sock.close()
                 self.dealers.clear()
             sock = self.context.socket(zmq.DEALER)
             sock.connect(address)
@@ -282,7 +285,7 @@ class Worker(object):
         header['timestamp'] = datetime.utcnow()
         log(self.address, 'Send to worker', address, header)
         dumps = header.get('dumps', pickle_dumps)
-        with self.lock:
+        with self.dealers_lock:
             self.dealers[address].send_multipart([pickle_dumps(header),
                                                   dumps(payload)])
 
@@ -329,13 +332,14 @@ class Worker(object):
         while self.status != 'closed':
             # Wait on request
             try:
-                if not self.to_scheduler.poll(100):
-                    continue
+                with self.to_scheduler_lock:
+                    code = self.to_scheduler.poll(100)
+                    if code != zmq.POLLIN:
+                        continue
+                    header, payload = self.to_scheduler.recv_multipart()
             except zmq.ZMQError:
                 break
             with logerrors():
-                with self.lock:
-                    header, payload = self.to_scheduler.recv_multipart()
                 header = pickle.loads(header)
                 log(self.address, 'Receive job from scheduler', header)
                 try:
@@ -353,13 +357,14 @@ class Worker(object):
         while self.status != 'closed':
             # Wait on request
             try:
-                if not self.to_workers.poll(100):
-                    continue
+                with self.to_workers_lock:
+                    code = self.to_workers.poll(100)
+                    if code != zmq.POLLIN:
+                        continue
+                    address, header, payload = self.to_workers.recv_multipart()
             except zmq.ZMQError:
                 break
-
             with logerrors():
-                address, header, payload = self.to_workers.recv_multipart()
                 header = pickle.loads(header)
                 if 'address' not in header:
                     header['address'] = address
@@ -506,7 +511,7 @@ class Worker(object):
         self.close()
 
     def close(self):
-        with self.lock:
+        with self.to_scheduler_lock:
             if self.status != 'closed':
                 self.status = 'closed'
                 do_close = True
@@ -518,10 +523,13 @@ class Worker(object):
             self.status = 'closed'
             if self.heartbeat:
                 self._heartbeat_thread.event.set()  # stop heartbeat
-            for sock in self.dealers.values():
-                sock.close(linger=1)
-            self.to_workers.close(linger=1)
-            self.to_scheduler.close(linger=1)
+            with self.dealers_lock:
+                for sock in self.dealers.values():
+                    sock.close(linger=1)
+            with self.to_workers_lock:
+                self.to_workers.close(linger=1)
+            with self.to_scheduler_lock:
+                self.to_scheduler.close(linger=1)
             self.pool.close()
             self.pool.join()
             self.block()

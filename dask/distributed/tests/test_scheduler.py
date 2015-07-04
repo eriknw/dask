@@ -110,7 +110,7 @@ def test_compute_cycle():
 
         dsk = {'a': (add, 1, 2), 'b': (inc, 'a')}
         s.trigger_task(dsk, 'a', 'queue-key')
-        sleep(0.1)
+        sleep(1)
 
         assert 'a' in s.who_has
         assert 'a' in a.data or 'a' in b.data
@@ -119,7 +119,7 @@ def test_compute_cycle():
         assert s.available_workers.qsize() == 2
 
         s.trigger_task(dsk, 'b', 'queue-key')
-        sleep(0.1)
+        sleep(1)
 
         assert 'b' in s.who_has
         assert 'b' in a.data or 'b' in b.data
