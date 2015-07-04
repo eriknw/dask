@@ -9,10 +9,6 @@ python:
 env:
     matrix:
         - RUN_ITERATION=1
-        - RUN_ITERATION=2
-        - RUN_ITERATION=3
-        - RUN_ITERATION=4
-        - RUN_ITERATION=5
 
 install:
   # Install conda

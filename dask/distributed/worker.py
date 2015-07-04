@@ -258,9 +258,11 @@ class Worker(object):
         header['address'] = self.address
         header['timestamp'] = datetime.utcnow()
         dumps = header.get('dumps', pickle_dumps)
+        dumped_header = pickle_dumps(header)
+        dumped_payload = dumps(payload)
         with self.to_scheduler_lock:
-            self.to_scheduler.send_multipart([pickle_dumps(header),
-                                              dumps(payload)])
+            self.to_scheduler.send_multipart([dumped_header,
+                                              dumped_payload])
 
     def send_to_worker(self, address, header, payload):
         """ Send data to workers
@@ -285,9 +287,11 @@ class Worker(object):
         header['timestamp'] = datetime.utcnow()
         log(self.address, 'Send to worker', address, header)
         dumps = header.get('dumps', pickle_dumps)
+        dumped_header = pickle_dumps(header)
+        dumped_payload = dumps(payload)
         with self.dealers_lock:
-            self.dealers[address].send_multipart([pickle_dumps(header),
-                                                  dumps(payload)])
+            self.dealers[address].send_multipart([dumped_header,
+                                                  dumped_payload])
 
     def listen_to_scheduler(self):
         """

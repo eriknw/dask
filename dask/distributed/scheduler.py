@@ -300,10 +300,12 @@ class Scheduler(object):
         if isinstance(address, unicode):
             address = address.encode()
         header['timestamp'] = datetime.utcnow()
+        dumped_header = pickle.dumps(header)
+        dumped_result = dumps(result)
         with self.client_lock:
             self.to_clients.send_multipart([address,
-                                            pickle.dumps(header),
-                                            dumps(result)])
+                                            dumped_header,
+                                            dumped_result])
 
     def trigger_task(self, dsk, key, queue):
         """ Send a single task to the next available worker
