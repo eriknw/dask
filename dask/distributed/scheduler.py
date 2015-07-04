@@ -288,8 +288,7 @@ class Scheduler(object):
         self.send_to_workers_queue.put([address,
                                             pickle.dumps(header),
                                             dumps(payload)])
-        with self.worker_lock:
-            self.send_to_workers_send.send(b'')
+        self.send_to_workers_send.send(b'')
 
     def send_to_client(self, address, header, result):
         """ Send packet to client """
