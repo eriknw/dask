@@ -557,10 +557,8 @@ class Scheduler(object):
         self.close_workers()
         self.status = 'closed'
         self.to_workers.close(linger=1)
-        with self.client_lock:
-            self.to_clients.close(linger=1)
-        with self.worker_lock:
-            self.send_to_workers_send.close(linger=1)
+        self.to_clients.close(linger=1)
+        self.send_to_workers_send.close(linger=1)
         self.send_to_workers_recv.close(linger=1)
         self.pool.close()
         self.pool.join()
