@@ -189,13 +189,13 @@ class Scheduler(object):
         """ Event loop: Listen to client router """
         while self.status != 'closed':
             try:
-                with self.client_lock:
-                    code = self.to_clients.poll(100)  # is this threadsafe?
-                    if code != zmq.POLLIN:
-                        continue
-                    address, header, payload = self.to_clients.recv_multipart()
+                code = self.to_clients.poll(100)  # is this threadsafe?
+                if code != zmq.POLLIN:
+                    continue
             except zmq.ZMQError:
                 break
+            with self.client_lock:
+                address, header, payload = self.to_clients.recv_multipart()
             header = pickle.loads(header)
             if 'address' not in header:
                 header['address'] = address
@@ -288,7 +288,8 @@ class Scheduler(object):
         self.send_to_workers_queue.put([address,
                                             pickle.dumps(header),
                                             dumps(payload)])
-        self.send_to_workers_send.send(b'')
+        with self.worker_lock:
+            self.send_to_workers_send.send(b'')
 
     def send_to_client(self, address, header, result):
         """ Send packet to client """
