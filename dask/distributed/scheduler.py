@@ -170,7 +170,7 @@ class Scheduler(object):
                     self.to_workers.send_multipart(msg)
                     self.send_to_workers_queue.task_done()
 
-            if socks.get(self.to_workers) == zmq.POLLIN:
+            if self.to_workers in socks:
                 address, header, payload = self.to_workers.recv_multipart()
 
                 header = pickle.loads(header)
@@ -189,8 +189,7 @@ class Scheduler(object):
         """ Event loop: Listen to client router """
         while self.status != 'closed':
             try:
-                code = self.to_clients.poll(100)  # is this threadsafe?
-                if code != zmq.POLLIN:
+                if not self.to_clients.poll(100):  # is this threadsafe?
                     continue
             except zmq.ZMQError:
                 break
