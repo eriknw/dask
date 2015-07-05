@@ -110,7 +110,7 @@ def test_compute_cycle():
 
         dsk = {'a': (add, 1, 2), 'b': (inc, 'a')}
         s.trigger_task(dsk, 'a', 'queue-key')
-        sleep(5)
+        sleep(0.1)
 
         assert 'a' in s.who_has
         assert 'a' in a.data or 'a' in b.data
@@ -119,7 +119,7 @@ def test_compute_cycle():
         assert s.available_workers.qsize() == 2
 
         s.trigger_task(dsk, 'b', 'queue-key')
-        sleep(5)
+        sleep(0.1)
 
         assert 'b' in s.who_has
         assert 'b' in a.data or 'b' in b.data
@@ -201,7 +201,7 @@ def test_close_workers():
 
         s.close_workers()
         assert not s.workers
-        for i in range(3000):
+        for i in range(100):
             if a.status == 'closed' and b.status == 'closed':
                 break
             else:
@@ -212,7 +212,7 @@ def test_close_workers():
 
 def test_heartbeats():
     with scheduler_and_workers(n=1) as (s, (a,)):
-        for i in range(3000):
+        for i in range(100):
             if 'last-seen' in s.workers[a.address]:
                 break
             else:
